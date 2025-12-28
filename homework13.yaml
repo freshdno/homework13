@@ -1,4 +1,61 @@
 ---
+- name: Create AWS settings
+  hosts: localhost
+  
+  tasks:
+    - name: create a new EC2 key pair, returns generated private key
+    # use no_log to avoid private key being displayed into output
+      amazon.aws.ec2_key:
+        name: my_keypair
+      no_log: true
+      register: aws_ec2_key_pair
+
+    - name: save private key
+      copy:
+        content: "{{ aws_ec2_key_pair.key.private_key }}"
+        dest: "/.ssh/MyKeyPair.pem"
+        mode: "0400"
+        
+
+    - name: create security group
+      amazon.aws.ec2_security_group:
+        name: my_sec_group
+        rules:
+        - proto: tcp
+          ports:
+            - 8080
+            - 22
+          cidr_ip: 0.0.0.0/0
+          rule_desc: allow all on port 8080,22
+     
+    - name: Create EC2 VM build
+      amazon.aws.ec2_instance:
+        name: "build"
+        image_id: "ami-0ecb62995f68bb549"
+        instance_type: "t2.micro"
+        key_name: "my_keypair"
+        security_groups:
+          - "my_sec_group"
+        volumes:
+         - device_name: /dev/sda1
+           ebs:
+             volume_size: 15
+
+    - name: Create EC2 VM prod
+      amazon.aws.ec2_instance:
+        name: "tomcat"
+        image_id: "ami-0ecb62995f68bb549"
+        instance_type: "t2.micro"
+        key_name: "my_keypair"
+        security_groups:
+          - "my_sec_group"
+        volumes:
+         - device_name: /dev/sda1
+           ebs:
+             volume_size: 15
+        
+
+
 - name: setup build
   hosts: build
   become: yes
